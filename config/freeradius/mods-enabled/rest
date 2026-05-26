@@ -1,0 +1,44 @@
+# rlm_rest configuration for OTP authentication
+# This module is used to verify OTP codes for users who have OTP enabled.
+# Called from sites-enabled/default when Auth-Type is set to rest_otp.
+
+rest otp_verify {
+    connect_timeout = 10
+    connect_retries = 2
+
+    tls {
+        require_cert = "never"
+        sni = false
+    }
+
+    # Authentication - called during authenticate section
+    authenticate {
+        uri = "http://backend:8000/api/v1/radius/authenticate"
+        method = 'post'
+        body = 'json'
+        data = '{"username": "%{User-Name}", "password": "%{User-Password}"}'
+
+        # HTTP 2xx -> accept
+        # HTTP 4xx -> reject
+        # HTTP 5xx -> fail
+    }
+}
+
+# Accounting relay - forwards accounting data to the backend API
+rest acct_relay {
+    connect_timeout = 10
+    connect_retries = 2
+
+    tls {
+        require_cert = "never"
+        sni = false
+    }
+
+    # Accounting - called during accounting section
+    accounting {
+        uri = "http://backend:8000/api/v1/radius/accounting"
+        method = 'post'
+        body = 'json'
+        data = '{"acct_session_id": "%{Acct-Session-Id}", "acct_unique_id": "%{Acct-Unique-Session-Id}", "username": "%{User-Name}", "nas_ip_address": "%{NAS-IP-Address}", "acct_status_type": "%{Acct-Status-Type}", "acct_start_time": "%S"}'
+    }
+}

@@ -1,0 +1,3 @@
+# OTP Policy
+# This file defines policies related to OTP authentication.
+# The actual OTP check is performed by rlm_rest calling the backend API.

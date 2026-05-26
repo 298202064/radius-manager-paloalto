@@ -1,0 +1,113 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: radius-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-radius}
+      POSTGRES_USER: ${DB_USER:-radius}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-radiuspass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./config/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "127.0.0.1:5433:5432"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-radius}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: radius-redis
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: radius-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-radius}:${DB_PASSWORD:-radiuspass}@postgres:5432/${DB_NAME:-radius}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SECRET_KEY: ${SECRET_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+    volumes:
+      - ./config/freeradius/clients.conf:/app/sync/clients.conf:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+
+  freeradius:
+    build:
+      context: ./config/freeradius
+      dockerfile: Dockerfile
+    container_name: radius-freeradius
+    tty: true
+    environment:
+      DB_USER: ${DB_USER:-radius}
+      DB_PASSWORD: ${DB_PASSWORD:-radiuspass}
+      DB_NAME: ${DB_NAME:-radius}
+      DB_HOST: postgres
+    volumes:
+      - ./config/freeradius/clients.conf:/etc/freeradius/3.0/clients.conf:rw
+      - ./config/freeradius/mods-enabled/sql:/etc/freeradius/3.0/mods-available/sql:ro
+      - ./config/freeradius/mods-enabled/rest:/etc/freeradius/3.0/mods-available/rest:ro
+      - ./config/freeradius/sites-enabled/default:/etc/freeradius/3.0/sites-available/default:ro
+      - freeradius_log:/var/log/freeradius
+      - ./config/freeradius/policy.d/otp:/etc/freeradius/3.0/policy.d/otp:ro
+    ports:
+      - "1812:1812/udp"
+      - "1813:1813/udp"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    networks:
+      - internal
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: radius-frontend
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+    networks:
+      - internal
+    restart: unless-stopped
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  freeradius_log:
+  freeradius_raddb:

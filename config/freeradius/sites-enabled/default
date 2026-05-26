@@ -1,0 +1,134 @@
+# FreeRADIUS default virtual server
+server default {
+    # Listen on all interfaces for auth and accounting
+    listen {
+        type = auth
+        ipaddr = *
+        port = 1812
+    }
+
+    listen {
+        type = acct
+        ipaddr = *
+        port = 1813
+    }
+
+    # ============================================================
+    # Authorize: verify the client is allowed, load user info
+    # ============================================================
+    authorize {
+        # Preprocess: filter known attributes
+        preprocess
+
+        # SQL: load user check and reply attributes
+        sql
+
+        # PAP: set Auth-Type to PAP for password auth
+        pap
+
+        # OTP flow: detect OTP-enabled users.
+        # First request (no State): keep Auth-Type=PAP for password validation.
+        # Challenge response (State present): route to rlm_rest.
+        if (&User-Name) {
+            if ("%{sql:SELECT COUNT(*) FROM otp_devices d JOIN users u ON u.id = d.user_id WHERE u.username = '%{User-Name}' AND d.enabled = TRUE}" > 0) {
+                # Mark user as OTP-enabled (for authenticate section)
+                update control {
+                    Tmp-String-0 := "OTP"
+                }
+                # Challenge response: route to rlm_rest OTP verification
+                if (&request:State) {
+                    update control {
+                        Auth-Type := "rest_otp"
+                    }
+                }
+                # First request: keep Auth-Type=PAP (already set by pap module)
+                # The challenge will be issued in authenticate section after PAP success
+            }
+        }
+    }
+
+    # ============================================================
+    # Authenticate: verify credentials
+    # ============================================================
+    authenticate {
+        # PAP authentication (for non-OTP users and OTP step 1)
+        Auth-Type PAP {
+            pap
+
+            # OTP users: after PAP validates the static password, issue Access-Challenge
+            if (&control:Tmp-String-0) {
+                if (&request:State) {
+                    # Challenge response - OTP validated separately via rlm_rest
+                    noop
+                } else {
+                    # First request: password validated by PAP, now send Access-Challenge
+                    update reply {
+                        Reply-Message := "Enter 6-digit verification code"
+                    }
+                    challenge
+                }
+            }
+        }
+
+        # OTP authentication via rlm_rest -> FastAPI
+        Auth-Type rest_otp {
+            otp_verify
+        }
+    }
+
+    # ============================================================
+    # Pre-accounting
+    # ============================================================
+    preacct {
+        preprocess
+        acct_unique
+    }
+
+    # ============================================================
+    # Accounting: log session start/stop/update
+    # ============================================================
+    accounting {
+        detail
+        acct_relay
+    }
+
+    # ============================================================
+    # Session: SQL-based session tracking
+    # ============================================================
+    session {
+        sql
+    }
+
+    # ============================================================
+    # Post-authentication: log the result
+    # ============================================================
+    post-auth {
+        sql
+
+        # Send greeting on success
+        update reply {
+            Reply-Message := "Hello %{User-Name}"
+        }
+
+        # Log to radpostauth on success
+        if ("%{sql:INSERT INTO radpostauth (username, reply, authdate) VALUES ('%{User-Name}', 'Access-Accept', NOW())}") {
+            noop
+        }
+
+        # On reject, also log
+        Post-Auth-Type REJECT {
+            sql
+            if ("%{sql:INSERT INTO radpostauth (username, reply, authdate) VALUES ('%{User-Name}', 'Access-Reject', NOW())}") {
+                noop
+            }
+            attr_filter.access_reject
+        }
+
+        # On challenge, log as challenge
+        Post-Auth-Type Challenge {
+            if ("%{sql:INSERT INTO radpostauth (username, reply, authdate) VALUES ('%{User-Name}', 'Access-Challenge', NOW())}") {
+                noop
+            }
+        }
+    }
+}
