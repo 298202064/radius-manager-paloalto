@@ -132,7 +132,7 @@ docker compose up -d
 1. 进入 **NAS客户端** 页面
 2. 点击 **新建客户端**，填写 NAS 设备信息（名称、IP地址、共享密钥、设备类型等）
 3. 保存后系统 **自动同步** 配置到 FreeRADIUS 并重载服务，无需手动操作
-4. 新建、编辑或删除客户端时，系统会自动更新 `clients.conf` 文件并发送 HUP 信号重载 FreeRADIUS
+4. 新建、编辑或删除客户端时，系统会自动更新 `clients.conf` 文件并重启 FreeRADIUS 服务
 5. 如需手动触发同步，点击 **同步配置** 按钮即可
 
 ### 只读网关管理
@@ -243,7 +243,7 @@ client <名称> {
 }
 ```
 
-在 Web 界面中新建、编辑或删除 NAS 客户端后，系统会自动将配置写入 FreeRADIUS 的 `clients.conf` 并通过 HUP 信号重载服务，无需手动复制文件或重启容器。
+在 Web 界面中新建、编辑或删除 NAS 客户端后，系统会自动将配置写入 FreeRADIUS 的 `clients.conf` 并重启服务，无需手动复制文件或重启容器。
 
 如需手动触发同步，可在 **NAS客户端管理** 页面点击 **同步配置** 按钮，系统将重新生成完整的 `clients.conf` 并重载 FreeRADIUS。
 
