@@ -17,27 +17,33 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "ldap_configs",
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("name", sa.String(128), nullable=False),
-        sa.Column("host", sa.String(255), nullable=False),
-        sa.Column("port", sa.Integer(), nullable=False, server_default=sa.text("389")),
-        sa.Column("base_dn", sa.String(512), nullable=False),
-        sa.Column("bind_dn", sa.String(512), nullable=False),
-        sa.Column("bind_password", sa.String(512), nullable=False),
-        sa.Column("use_tls", sa.Boolean(), nullable=False, server_default=sa.text("false")),
-        sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index("idx_ldap_configs_host", "ldap_configs", ["host"])
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if not inspector.has_table("ldap_configs"):
+        op.create_table(
+            "ldap_configs",
+            sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+            sa.Column("name", sa.String(128), nullable=False),
+            sa.Column("host", sa.String(255), nullable=False),
+            sa.Column("port", sa.Integer(), nullable=False, server_default=sa.text("389")),
+            sa.Column("base_dn", sa.String(512), nullable=False),
+            sa.Column("bind_dn", sa.String(512), nullable=False),
+            sa.Column("bind_password", sa.String(512), nullable=False),
+            sa.Column("use_tls", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+            sa.Column("description", sa.Text(), nullable=True),
+            sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
+                      server_default=sa.text("now()")),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False,
+                      server_default=sa.text("now()")),
+            sa.PrimaryKeyConstraint("id"),
+        )
+        op.create_index("idx_ldap_configs_host", "ldap_configs", ["host"])
 
 
 def downgrade() -> None:
-    op.drop_index("idx_ldap_configs_host", table_name="ldap_configs")
-    op.drop_table("ldap_configs")
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if inspector.has_table("ldap_configs"):
+        op.drop_index("idx_ldap_configs_host", table_name="ldap_configs")
+        op.drop_table("ldap_configs")

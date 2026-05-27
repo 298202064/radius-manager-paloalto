@@ -17,24 +17,30 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "readonly_gateways",
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("name", sa.String(128), nullable=False),
-        sa.Column("host", sa.String(255), nullable=False),
-        sa.Column("username", sa.String(128), nullable=False),
-        sa.Column("password", sa.String(512), nullable=False),
-        sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index("idx_readonly_gateways_host", "readonly_gateways", ["host"])
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if not inspector.has_table("readonly_gateways"):
+        op.create_table(
+            "readonly_gateways",
+            sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+            sa.Column("name", sa.String(128), nullable=False),
+            sa.Column("host", sa.String(255), nullable=False),
+            sa.Column("username", sa.String(128), nullable=False),
+            sa.Column("password", sa.String(512), nullable=False),
+            sa.Column("description", sa.Text(), nullable=True),
+            sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
+                      server_default=sa.text("now()")),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False,
+                      server_default=sa.text("now()")),
+            sa.PrimaryKeyConstraint("id"),
+        )
+        op.create_index("idx_readonly_gateways_host", "readonly_gateways", ["host"])
 
 
 def downgrade() -> None:
-    op.drop_index("idx_readonly_gateways_host", table_name="readonly_gateways")
-    op.drop_table("readonly_gateways")
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if inspector.has_table("readonly_gateways"):
+        op.drop_index("idx_readonly_gateways_host", table_name="readonly_gateways")
+        op.drop_table("readonly_gateways")
