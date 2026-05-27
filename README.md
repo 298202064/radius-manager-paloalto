@@ -1,6 +1,6 @@
 # RADIUS 认证管理系统
 
-基于 FreeRADIUS + FastAPI + Vue 3 的 RADIUS 认证管理系统，支持用户管理、OTP 双因素认证、认证日志审计和自助服务，通过 Docker Compose 一键部署。
+这是一套基于 FreeRADIUS + FastAPI + Vue 3 的 RADIUS 认证管理系统，支持用户管理（可以手工创建也可以从企业AD做导入）、支持OTP 双因素认证、认证日志审计和自助服务，通过 Docker Compose 一键部署。完全适配Palo Alto Networks的防火墙部署GlobalProtect集成，也可以部署在企业数据中心和Prisma Access的Service Connection对接后为GlobalProtect用户接入提供MFA身份验证。
 
 ## 系统架构
 
