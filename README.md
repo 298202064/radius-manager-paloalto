@@ -61,8 +61,8 @@ cd /path/to/radius-manager
 如果需要从 Git 仓库拉取：
 
 ```bash
-git clone <项目地址>
-cd radius-manager
+git clone https://github.com/298202064/radius-manager-paloalto.git
+cd radius-manager-paloalto
 ```
 
 ### 2. 配置环境变量

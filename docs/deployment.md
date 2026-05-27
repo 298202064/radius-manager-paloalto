@@ -52,8 +52,8 @@
 ### 1. 获取项目
 
 ```bash
-git clone <项目地址>
-cd radius-manager
+git clone https://github.com/298202064/radius-manager-paloalto.git
+cd radius-manager-paloalto
 ```
 
 ### 2. 配置环境变量
