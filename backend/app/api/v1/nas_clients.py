@@ -60,12 +60,12 @@ async def _sync_to_freeradius(db: AsyncSession, raise_on_error: bool = False):
         return
 
     try:
-        container.kill(signal="HUP")
-        logger.info("Sent HUP signal to radius-freeradius")
+        container.restart(timeout=5)
+        logger.info("Restarted radius-freeradius container")
     except Exception as e:
-        logger.error("Failed to reload FreeRADIUS: %s", e)
+        logger.error("Failed to restart FreeRADIUS: %s", e)
         if raise_on_error:
-            raise HTTPException(status_code=500, detail=f"重载 FreeRADIUS 失败: {e}")
+            raise HTTPException(status_code=500, detail=f"重启 FreeRADIUS 容器失败: {e}")
         return
 
     return clients
