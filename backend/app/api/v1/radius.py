@@ -1,12 +1,14 @@
+import ipaddress
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import verify_password
 from app.models.radacct import RadAcct
@@ -14,6 +16,41 @@ from app.models.user import User
 from app.models.otp_device import OTPDevice
 from app.schemas.otp import RADIUSAuthRequest
 from app.services.otp_service import OTPService
+
+
+def _parse_allowed_networks(csv_str: str) -> list:
+    """Parse RADIUS_ALLOWED_IPS into a list of ip_network/ip_address objects."""
+    nets = []
+    for entry in csv_str.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        try:
+            nets.append(ipaddress.ip_network(entry, strict=False))
+        except ValueError:
+            nets.append(ipaddress.ip_address(entry))
+    return nets
+
+
+_RADIUS_NETS = _parse_allowed_networks(settings.radius_allowed_ips)
+
+
+async def verify_radius_source(request: Request):
+    """Dependency: ensure the RADIUS request originates from an allowed IP/net."""
+    client_ip_str = request.client.host if request.client else "0.0.0.0"
+    try:
+        client_ip = ipaddress.ip_address(client_ip_str)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Invalid client IP")
+
+    for net in _RADIUS_NETS:
+        if isinstance(net, ipaddress.IPv4Network | ipaddress.IPv6Network):
+            if client_ip in net:
+                return
+        elif client_ip == net:
+            return
+
+    raise HTTPException(status_code=403, detail="Access denied")
 
 
 class AccountingRequest(BaseModel):
@@ -40,7 +77,11 @@ class AccountingRequest(BaseModel):
     connect_info: Optional[str] = None
 
 
-router = APIRouter(prefix="/radius", tags=["RADIUS内部"])
+router = APIRouter(
+    prefix="/radius",
+    tags=["RADIUS内部"],
+    dependencies=[Depends(verify_radius_source)],
+)
 
 
 @router.post("/authenticate")
