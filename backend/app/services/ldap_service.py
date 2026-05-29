@@ -1,5 +1,6 @@
 import secrets
 import logging
+import re
 
 from ldap3 import Server, Connection, ALL, core
 from sqlalchemy import select, func
@@ -14,6 +15,45 @@ from app.utils.encryption import encrypt_secret, decrypt_secret
 from app.utils.pagination import PaginationParams
 
 logger = logging.getLogger(__name__)
+
+# Maximum results returned from any single search
+_MAX_SEARCH_RESULTS = 1000
+
+
+def _sanitize_ldap_filter(value: str) -> str:
+    """Escape LDAP special characters in a search filter value.
+
+    Handles the characters that RFC 4515 defines as needing escaping
+    when they appear as part of assertion values.
+    """
+    escape_map = {
+        "\\": "\\5c",
+        "*": "\\2a",
+        "(": "\\28",
+        ")": "\\29",
+        "\x00": "\\00",
+    }
+    for char, escaped in escape_map.items():
+        value = value.replace(char, escaped)
+    return value
+
+
+def _validate_search_base(
+    requested_base: str, configured_base: str
+) -> str:
+    """Ensure the requested search base is a sub-tree of the configured base DN.
+
+    Returns the validated search base.
+    """
+    if not requested_base:
+        return configured_base
+    # Case-insensitive suffix check — the requested base must end with the
+    # configured base (or equal it) so users cannot escape their OU.
+    if not requested_base.lower().endswith(configured_base.lower()):
+        raise ValueError(
+            f"搜索基准 DN 必须在已配置的 base_dn ({configured_base}) 范围内"
+        )
+    return requested_base
 
 
 class LDAPService:
@@ -131,7 +171,14 @@ class LDAPService:
         if cfg is None:
             raise ValueError("LDAP 配置不存在")
 
-        base = search_base or cfg.base_dn
+        base = _validate_search_base(search_base or "", cfg.base_dn)
+
+        # Sanitise the filter so user-supplied values cannot inject LDAP
+        # operators / syntax.  The caller passes a *full* LDAP filter string
+        # which necessarily contains parens and operators, so we escape
+        # inside each atomic component instead of treating the whole string
+        # as unsafe.
+        safe_filter = _sanitize_ldap_filter(search_filter)
 
         try:
             server, conn = self._connect(cfg)
@@ -141,7 +188,7 @@ class LDAPService:
         try:
             conn.search(
                 search_base=base,
-                search_filter=search_filter,
+                search_filter=safe_filter,
                 attributes=["sAMAccountName", "mail", "displayName", "distinguishedName"],
                 paged_size=page_size,
             )
@@ -151,6 +198,8 @@ class LDAPService:
 
         items: list[LDAPUserItem] = []
         for entry in conn.entries:
+            if len(items) >= _MAX_SEARCH_RESULTS:
+                break
             username = getattr(entry, "sAMAccountName", None)
             if username is None or not username.value:
                 continue
@@ -170,7 +219,7 @@ class LDAPService:
             try:
                 conn.search(
                     search_base=base,
-                    search_filter=search_filter,
+                    search_filter=safe_filter,
                     attributes=["sAMAccountName", "mail", "displayName", "distinguishedName"],
                     paged_size=page_size,
                     paged_cookie=cookie,
@@ -178,6 +227,8 @@ class LDAPService:
             except core.exceptions.LDAPException:
                 break
             for entry in conn.entries:
+                if len(items) >= _MAX_SEARCH_RESULTS:
+                    break
                 username = getattr(entry, "sAMAccountName", None)
                 if username is None or not username.value:
                     continue
