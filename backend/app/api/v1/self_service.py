@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,8 +11,26 @@ from app.schemas.user import ChangePasswordRequest
 from app.schemas.otp import OTPBindRequest, OTPStatusResponse, OTPQRResponse
 from app.services.user_service import UserService
 from app.services.otp_service import OTPService
+from app.utils.ratelimit import RateLimiter
 
 router = APIRouter(prefix="/self", tags=["自助服务"])
+
+
+def _user_key(request: Request) -> str:
+    """Build rate-limit key from authenticated username, falling back to IP."""
+    user = getattr(request.state, "user", None)
+    if user:
+        return str(user.username)
+    client_ip = request.client.host if request.client else "unknown"
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    return client_ip
+
+
+_otp_bind_limiter = RateLimiter("self:otp:bind", max_requests=5, window_seconds=60, key_builder=_user_key)
+_otp_qrcode_limiter = RateLimiter("self:otp:qrcode", max_requests=3, window_seconds=60, key_builder=_user_key)
+_password_limiter = RateLimiter("self:password", max_requests=3, window_seconds=60, key_builder=_user_key)
 
 
 @router.put("/password")
@@ -20,6 +38,7 @@ async def change_password(
     request: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _=Depends(_password_limiter),
 ):
     if not verify_password(request.current_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="当前密码错误")
@@ -36,6 +55,7 @@ async def change_password(
 async def get_otp_qrcode(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _=Depends(_otp_qrcode_limiter),
 ):
     """Get QR code for binding a new OTP device."""
     secret = OTPService.generate_secret()
@@ -67,6 +87,7 @@ async def bind_otp(
     request: OTPBindRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _=Depends(_otp_bind_limiter),
 ):
     """Bind OTP device after verifying the current TOTP code."""
     # Check if user already has an enabled OTP device

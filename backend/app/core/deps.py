@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +13,7 @@ security = HTTPBearer()
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
+    request: Request = None,
 ) -> User:
     """Get the currently authenticated user from JWT token."""
     payload = decode_token(credentials.credentials)
@@ -41,6 +42,11 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户不存在或已被禁用",
         )
+
+    # Make user available to downstream dependencies (e.g. rate limiter)
+    if request is not None:
+        request.state.user = user
+
     return user
 
 

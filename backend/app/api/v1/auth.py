@@ -4,12 +4,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.services.auth_service import AuthService
 from app.schemas.auth import LoginRequest, TokenResponse, RefreshRequest
+from app.utils.ratelimit import RateLimiter
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 
+_login_limiter = RateLimiter("auth:login", max_requests=5, window_seconds=60)
+_refresh_limiter = RateLimiter("auth:refresh", max_requests=10, window_seconds=60)
+
 
 @router.post("/login", response_model=TokenResponse)
-async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(
+    request: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(_login_limiter),
+):
     auth_service = AuthService(db)
     user = await auth_service.authenticate(request.username, request.password)
     if user is None:
@@ -21,7 +29,11 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh(request: RefreshRequest, db: AsyncSession = Depends(get_db)):
+async def refresh(
+    request: RefreshRequest,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(_refresh_limiter),
+):
     auth_service = AuthService(db)
     result = await auth_service.refresh_access_token(request.refresh_token)
     if result is None:
