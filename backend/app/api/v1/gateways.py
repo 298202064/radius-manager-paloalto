@@ -121,7 +121,16 @@ async def fetch_panos_online_users(
     import ssl
     import logging
 
+    from app.utils.network import validate_gateway_host
+
     logger = logging.getLogger(__name__)
+
+    # Defense-in-depth: validate host again at the point of use
+    try:
+        host = validate_gateway_host(host)
+    except ValueError as e:
+        raise Exception(f"网关主机地址验证失败: {e}")
+
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
