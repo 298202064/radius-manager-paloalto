@@ -1,7 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.security import decode_token, revoke_token
 from app.services.auth_service import AuthService
 from app.schemas.auth import LoginRequest, TokenResponse, RefreshRequest
 from app.utils.ratelimit import RateLimiter
@@ -45,7 +49,24 @@ async def refresh(
 
 
 @router.post("/logout")
-async def logout(request: RefreshRequest, db: AsyncSession = Depends(get_db)):
+async def logout(
+    request: RefreshRequest,
+    db: AsyncSession = Depends(get_db),
+    http_request: Request = None,
+):
     auth_service = AuthService(db)
+
+    # Revoke the access token if present in Authorization header
+    auth_header = http_request.headers.get("Authorization", "") if http_request else ""
+    if auth_header.startswith("Bearer "):
+        access_token_str = auth_header[7:]
+        payload = decode_token(access_token_str)
+        if payload and payload.get("jti"):
+            exp = payload.get("exp")
+            if exp:
+                expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
+                await revoke_token(payload["jti"], expires_at)
+
+    # Delete refresh token from DB
     await auth_service.logout(request.refresh_token)
     return {"message": "已登出"}

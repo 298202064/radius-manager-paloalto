@@ -28,6 +28,16 @@ async def get_current_user(
             detail="无效的令牌类型",
         )
 
+    # Check token revocation (new-style tokens with JTI)
+    jti = payload.get("jti")
+    if jti is not None:
+        from app.core.security import is_token_revoked
+        if await is_token_revoked(jti):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="令牌已被撤销",
+            )
+
     username = payload.get("sub")
     if username is None:
         raise HTTPException(
