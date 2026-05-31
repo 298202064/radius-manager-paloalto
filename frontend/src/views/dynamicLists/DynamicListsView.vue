@@ -17,7 +17,7 @@
               保存 IP 列表
             </el-button>
             <el-tag type="info" effect="plain">
-              防火墙 EDL 地址: http://192.168.3.12:8081/dynamic/ip-list.txt
+              防火墙 EDL 地址: {{ ipEdlUrl }}
             </el-tag>
           </div>
 
@@ -45,7 +45,7 @@
               保存 URL 列表
             </el-button>
             <el-tag type="info" effect="plain">
-              防火墙 EDL 地址: http://192.168.3.12:8081/dynamic/url-list.txt
+              防火墙 EDL 地址: {{ urlEdlUrl }}
             </el-tag>
           </div>
 
@@ -85,10 +85,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Monitor, Link, InfoFilled } from '@element-plus/icons-vue'
 import { getIPList, updateIPList, getURLList, updateURLList } from '@/api/dynamicLists'
+
+const baseUrl = computed(() => `${window.location.protocol}//${window.location.host}`)
+const ipEdlUrl = computed(() => `${baseUrl.value}/dynamic/ip-list.txt`)
+const urlEdlUrl = computed(() => `${baseUrl.value}/dynamic/url-list.txt`)
 
 const activeTab = ref('ip')
 const ipText = ref('')
