@@ -49,6 +49,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
     volumes:
       - ./config/freeradius/clients.conf:/app/sync/clients.conf:rw
+      - ./data/dynamic:/app/dynamic:rw
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       postgres:

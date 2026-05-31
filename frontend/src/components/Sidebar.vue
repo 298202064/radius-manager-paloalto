@@ -37,6 +37,11 @@
         <span>只读LDAP</span>
       </el-menu-item>
 
+      <el-menu-item index="/dynamic-lists" v-if="authStore.isAdmin">
+        <el-icon><List /></el-icon>
+        <span>动态列表</span>
+      </el-menu-item>
+
       <el-menu-item index="/logs/auth" v-if="authStore.isAdmin">
         <el-icon><Document /></el-icon>
         <span>认证日志</span>

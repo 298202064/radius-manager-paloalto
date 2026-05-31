@@ -45,6 +45,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '只读LDAP', roles: ['admin'] },
       },
       {
+        path: 'dynamic-lists',
+        name: 'DynamicLists',
+        component: () => import('@/views/dynamicLists/DynamicListsView.vue'),
+        meta: { title: '动态列表', roles: ['admin'] },
+      },
+      {
         path: 'logs/auth',
         name: 'AuthLogs',
         component: () => import('@/views/logs/AuthLogView.vue'),

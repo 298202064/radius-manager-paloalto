@@ -2,10 +2,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 
 from app.core.config import settings
 from app.api.router import api_router
 from app.core.redis import close_redis
+from app.services import dynamic_list_service
 
 
 @asynccontextmanager
@@ -38,3 +40,14 @@ app.include_router(api_router)
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+# ── Public EDL feeds for PAN-OS external dynamic lists ──
+@app.get("/dynamic/ip-list.txt", response_class=PlainTextResponse)
+async def serve_ip_list():
+    return dynamic_list_service.get_ip_list_text()
+
+
+@app.get("/dynamic/url-list.txt", response_class=PlainTextResponse)
+async def serve_url_list():
+    return dynamic_list_service.get_url_list_text()
