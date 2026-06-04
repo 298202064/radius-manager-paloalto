@@ -45,3 +45,7 @@ export function generateConfig() {
 export function syncNasConfig() {
   return apiClient.post('/nas-clients/sync')
 }
+
+export function testNasClient(id: number) {
+  return apiClient.post(`/nas-clients/${id}/test`)
+}

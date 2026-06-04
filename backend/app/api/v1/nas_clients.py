@@ -154,3 +154,42 @@ async def delete_client(client_id: int, db: AsyncSession = Depends(get_db)):
     # Auto-sync after delete
     await _sync_to_freeradius(db)
     return {"message": "NAS客户端已删除"}
+
+@router.post("/{client_id}/test")
+async def test_nas_client(client_id: int, db: AsyncSession = Depends(get_db)):
+    """Test NAS client configuration: verify FreeRADIUS is running and client is configured."""
+    service = NASService(db)
+    client = await service.get_client_by_id(client_id)
+    if client is None:
+        raise HTTPException(status_code=404, detail="NAS客户端不存在")
+
+    import docker
+    errors = []
+    client_ip = str(client.ip_address)
+
+    # 1. Check FreeRADIUS container is running
+    try:
+        docker_client = docker.from_env()
+        container = docker_client.containers.get("radius-freeradius")
+        if container.status != "running":
+            errors.append(f"FreeRADIUS 容器状态异常: {container.status}")
+    except Exception as e:
+        errors.append(f"无法连接 FreeRADIUS 容器: {e}")
+
+    # 2. Check clients.conf contains this client (use docker SDK exec)
+    try:
+        docker_client = docker.from_env()
+        container = docker_client.containers.get("radius-freeradius")
+        exit_code, output = container.exec_run(["grep", "-q", client_ip, "/etc/freeradius/3.0/clients.conf"])
+        if exit_code != 0:
+            errors.append(f"客户端 {client_ip} 未在 clients.conf 中找到，请先同步配置")
+    except Exception as e:
+        errors.append(f"检查配置文件失败: {e}")
+
+    if errors:
+        return {"status": "error", "message": " ".join(errors)}
+
+    return {
+        "status": "success",
+        "message": f"客户端 {client.shortname} ({client_ip}) 配置正常，FreeRADIUS 运行中"
+    }

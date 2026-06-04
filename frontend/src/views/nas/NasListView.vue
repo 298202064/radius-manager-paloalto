@@ -7,6 +7,9 @@
         <el-button type="primary" @click="openCreateDialog">新建客户端</el-button>
       </div>
     </div>
+    <div style="color: #909399; font-size: 13px; margin-bottom: 16px">
+      配置 PAN-OS 防火墙 RADIUS 服务器时，认证协议（Authentication Protocol）选择 PAP，端口保持默认 1812，共享密钥（Secret）与下方配置保持一致。
+    </div>
 
     <el-card shadow="never">
       <el-table :data="clients" v-loading="loading" stripe style="width: 100%">
@@ -24,6 +27,7 @@
         <el-table-column prop="description" label="描述" min-width="200" />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
+            <el-button size="small" @click="handleTest(row)">测试</el-button>
             <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
             <el-popconfirm title="确定删除该客户端？" @confirm="handleDelete(row.id)">
               <template #reference>
@@ -59,7 +63,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getNasClients, deleteNasClient, syncNasConfig } from '@/api/nas'
+import { getNasClients, deleteNasClient, syncNasConfig, testNasClient } from '@/api/nas'
 import NasFormDialog from './NasFormDialog.vue'
 
 const loading = ref(false)
@@ -91,6 +95,19 @@ function openCreateDialog() {
 function openEditDialog(client: any) {
   editingClient.value = client
   dialogVisible.value = true
+}
+
+async function handleTest(row: any) {
+  try {
+    const res = await testNasClient(row.id)
+    if (res.data.status === 'success') {
+      ElMessage.success(res.data.message)
+    } else {
+      ElMessage.warning(res.data.message)
+    }
+  } catch {
+    // handled by interceptor
+  }
 }
 
 async function handleDelete(id: number) {

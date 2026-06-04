@@ -22,3 +22,5 @@ node_modules/
 
 # Word documents (replaced by Markdown in docs/)
 *.docx
+data/
+frontend/._dist
