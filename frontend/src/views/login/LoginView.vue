@@ -35,6 +35,7 @@
             v-model="form.username"
             placeholder="用户名"
             :prefix-icon="UserIcon"
+            @input="onUsernameInput"
           />
         </el-form-item>
         <el-form-item prop="password">
@@ -61,6 +62,10 @@
       <div v-if="error" class="login-error">
         <span class="error-icon">!</span>
         {{ error }}
+      </div>
+
+      <div v-if="lastUsername && !form.username" class="last-login-hint">
+        上次登录: <strong>{{ lastUsername }}</strong>
       </div>
     </div>
 
@@ -92,6 +97,7 @@ const authStore = useAuthStore()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const error = ref('')
+const lastUsername = ref(localStorage.getItem('last_username') || '')
 
 const form = reactive({
   username: '',
@@ -105,6 +111,12 @@ const rules: FormRules = {
 
 function UserIcon() { return h(User) }
 function LockIcon() { return h(Lock) }
+
+function onUsernameInput() {
+  if (lastUsername.value && form.username !== lastUsername.value) {
+    lastUsername.value = ''
+  }
+}
 
 async function handleLogin() {
   const valid = await formRef.value?.validate().catch(() => false)
@@ -300,6 +312,17 @@ async function handleLogin() {
   font-size: 12px;
   font-weight: 700;
   flex-shrink: 0;
+}
+
+/* ── Last login hint ── */
+.last-login-hint {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+}
+.last-login-hint strong {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* ── Footer ── */

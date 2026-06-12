@@ -111,14 +111,14 @@ server default {
         }
 
         # Log to radpostauth on success
-        if ("%{sql:INSERT INTO radpostauth (username, reply, authdate) VALUES ('%{User-Name}', 'Access-Accept', NOW())}") {
+        if ("%{sql:INSERT INTO radpostauth (username, reply, authdate, calledstationid, callingstationid, nasipaddress) VALUES ('%{User-Name}', 'Access-Accept', NOW(), '%{Called-Station-Id}', '%{Calling-Station-Id}', '%{NAS-IP-Address}')}") {
             noop
         }
 
         # On reject, also log
         Post-Auth-Type REJECT {
             sql
-            if ("%{sql:INSERT INTO radpostauth (username, reply, authdate) VALUES ('%{User-Name}', 'Access-Reject', NOW())}") {
+            if ("%{sql:INSERT INTO radpostauth (username, reply, authdate, calledstationid, callingstationid, nasipaddress) VALUES ('%{User-Name}', 'Access-Reject', NOW(), '%{Called-Station-Id}', '%{Calling-Station-Id}', '%{NAS-IP-Address}')}") {
                 noop
             }
             attr_filter.access_reject
@@ -126,7 +126,7 @@ server default {
 
         # On challenge, log as challenge
         Post-Auth-Type Challenge {
-            if ("%{sql:INSERT INTO radpostauth (username, reply, authdate) VALUES ('%{User-Name}', 'Access-Challenge', NOW())}") {
+            if ("%{sql:INSERT INTO radpostauth (username, reply, authdate, calledstationid, callingstationid, nasipaddress) VALUES ('%{User-Name}', 'Access-Challenge', NOW(), '%{Called-Station-Id}', '%{Calling-Station-Id}', '%{NAS-IP-Address}')}") {
                 noop
             }
         }

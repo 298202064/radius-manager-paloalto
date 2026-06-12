@@ -11,6 +11,7 @@ class AuthLogEntry(BaseModel):
     reply: Optional[str] = None
     calledstationid: Optional[str] = None
     callingstationid: Optional[str] = None
+    nasipaddress: Optional[str] = None
     authdate: datetime
 
     model_config = {"from_attributes": True}

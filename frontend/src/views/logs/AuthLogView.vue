@@ -37,8 +37,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="callingstationid" label="呼叫方" width="150" />
-        <el-table-column prop="calledstationid" label="被叫方" width="150" />
+        <el-table-column prop="callingstationid" label="源 IP" width="150" />
+        <el-table-column prop="nasipaddress" label="NAS IP" width="130" />
+        <el-table-column prop="calledstationid" label="NAS/被叫方" width="150" />
         <el-table-column prop="authdate" label="认证时间" width="180" />
       </el-table>
 

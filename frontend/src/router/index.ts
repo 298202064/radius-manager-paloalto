@@ -1,6 +1,32 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 
+/**
+ * Decode a JWT payload without verifying the signature (frontend-only check).
+ * Returns null for any parse failure.
+ */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    return JSON.parse(atob(parts[1]))
+  } catch {
+    return null
+  }
+}
+
+function isTokenExpired(token: string): boolean {
+  const payload = decodeJwtPayload(token)
+  if (!payload || typeof payload.exp !== 'number') return true
+  return payload.exp * 1000 < Date.now()
+}
+
+/** Clear both tokens from storage. */
+function clearTokens() {
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
+}
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/login',
@@ -83,20 +109,26 @@ const router = createRouter({
   routes,
 })
 
-// Navigation guard
+// Navigation guard — check token existence AND expiry
 router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('access_token')
   const isPublic = to.meta.public
 
-  if (!token && !isPublic) {
-    next('/login')
-    return
+  // No token → public pages are OK, everything else redirects
+  if (!token) {
+    if (isPublic) return next()
+    return next('/login')
   }
 
-  if (token && isPublic) {
-    next('/')
-    return
+  // Token exists but expired → clear and redirect to login
+  if (isTokenExpired(token)) {
+    clearTokens()
+    if (isPublic) return next()
+    return next('/login')
   }
+
+  // Valid token on a public page (e.g. /login) → redirect to dashboard
+  if (isPublic) return next('/')
 
   next()
 })

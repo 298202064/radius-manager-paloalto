@@ -3,6 +3,17 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
+import { useAuthStore } from '@/store/auth'
+
+const authStore = useAuthStore()
+
+onMounted(() => {
+  // If user has a valid token on page load, start idle detection
+  if (authStore.token) {
+    authStore.startIdleDetection()
+  }
+})
 </script>
 
 <style>

@@ -1,15 +1,10 @@
-# rlm_sql configuration for PostgreSQL
 sql {
     driver = "rlm_sql_postgresql"
-
-    # Connection info
     server = "postgres"
     port = 5432
     login = "radius"
     password = "radiuspass"
     radius_db = "radius"
-
-    # Connection pool
     pool {
         start = 5
         min = 5
@@ -18,23 +13,17 @@ sql {
         lifetime = 600
         idle_timeout = 300
     }
-
-    # Read queries from mods-config
     dialect = "postgresql"
+    acct_table1 = "radacct"
+    acct_table2 = "radacct"
+    postauth_table = "radpostauth"
+    authcheck_table = "radcheck"
+    authreply_table = "radreply"
+    groupcheck_table = "radgroupcheck"
+    groupreply_table = "radgroupreply"
+    usergroup_table = "usergroup"
+    client_table = "nas"
+    group_attribute = "SQL-Group"
 
-    # Authorization queries
-    authorize_check_query = "SELECT id, username, attribute, value, op FROM radcheck WHERE username = '%{User-Name}' ORDER BY id"
-    authorize_reply_query = "SELECT id, username, attribute, value, op FROM radreply WHERE username = '%{User-Name}' ORDER BY id"
-    authorize_group_check_query = "SELECT g.id, g.groupname, g.attribute, g.value, g.op FROM radgroupcheck g, usergroup u WHERE g.groupname = u.groupname AND u.username = '%{User-Name}' ORDER BY g.id"
-    authorize_group_reply_query = "SELECT g.id, g.groupname, g.attribute, g.value, g.op FROM radgroupreply g, usergroup u WHERE g.groupname = u.groupname AND u.username = '%{User-Name}' ORDER BY g.id"
-
-    # Post-auth logging
-
-    # NOTE: read_clients is disabled because Docker Desktop on macOS changes
-    # the source IP of incoming UDP packets (NAT). External NAS clients'
-    # IPs are not preserved, so source-IP-based client matching via SQL
-    # does not work on macOS. Instead, NAS clients are configured directly
-    # in clients.conf. On Linux Docker (proper iptables DNAT), re-enable this.
-    # read_clients = yes
-    # client_query = "SELECT id, ip_address::text AS nasname, shortname, nas_type AS type, radsecret AS secret FROM nas_clients WHERE enabled = TRUE"
+    $INCLUDE ${modconfdir}/${.:name}/main/${dialect}/queries.conf
 }
